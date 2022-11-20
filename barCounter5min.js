@@ -1,4 +1,4 @@
-// barCounter5min v1.1 2022-08-08 JackieW
+// barCounter5min v1.2 2022-11-20 JackieW
 
 // Description:
 //      An Al Brooks style 5min bar count labeler. This custom indicator will
@@ -8,6 +8,9 @@
 // Release v1.1
 //      o label all bars of the 24 hour session
 //      o hilight hourly bars and bar 18
+//
+// Release v1.2
+//      o account for daylight savings time
 
 const predef = require("./tools/predef");
 const meta = require("./tools/meta");
@@ -17,13 +20,27 @@ const colorStandard = "#888"
 const color18       = "#0cc"
 const colorHourly   = "#f00"
 
+// DST in play? We only care about EST and not any other country/timzone.
+// source: https://stackoverflow.com/questions/11887934/how-to-check-if-dst-daylight-saving-time-is-in-effect-and-if-so-the-offset
+//
+Date.prototype.stdTimezoneOffset = function () {
+    var jan = new Date(this.getFullYear(), 0, 1);
+    var jul = new Date(this.getFullYear(), 6, 1);
+    return Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
+}
+
+Date.prototype.isDstObserved = function () {
+    return this.getTimezoneOffset() < this.stdTimezoneOffset();
+}
+
 class BarCounter5min {
     map(d) {
         const ts = d.timestamp()
         const now = new Date()
         const isToday = now.getDate() == ts.getDate()
+        const isDST = now.isDstObserved()
         const timestamp5min = Math.floor(((ts.getTime() / 1000) % 86400) / 300)  // convert to UTC epoch seconds and then to a 5min bar count
-        const barCount = timestamp5min - 161   // cash session (RTH) begins at bar 162 (9:30am EST)
+        const barCount = timestamp5min - 173 - (isDST?12:0)// cash session (RTH) begins at bar 174 (9:30am EST)
         const textValue = barCount > 0 ? barCount: (300 + barCount)
         const shouldDraw = (!this.props.todayOnly || isToday) && ((textValue) == 1 || ((textValue+1) % 2))
 
